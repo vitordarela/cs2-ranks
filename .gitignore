@@ -62,3 +62,8 @@ unsupported/Ranks for the LR database/obj
 unsupported/LvlRanks_with_modularity/.idea
 unsupported/LvlRanks_with_modularity/bin
 unsupported/LvlRanks_with_modularity/obj
+/.vs
+/Ranks/.vs
+/unsupported/LvlRanks_with_modularity/LvlCoreApi/obj
+/unsupported/LvlRanks_with_modularity/Ranks for the LR database/obj/Debug/net7.0
+/unsupported/LvlRanks_with_modularity/Ranks for the LR database/obj/Release/net7.0
