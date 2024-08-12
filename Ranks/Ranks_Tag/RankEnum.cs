@@ -1,4 +1,7 @@
-﻿public enum Rank
+﻿using System;
+using System.Collections.Generic;
+
+public enum Rank
 {
     One = 1,
     Two = 2,
@@ -50,5 +53,15 @@ public static class RankHelper
             return (Rank)rank;
         }
         return null;
+    }
+
+    public static IEnumerable<string> GetAllRankSymbols()
+    {
+        var symbols = new List<string>();
+        foreach (Rank rank in Enum.GetValues(typeof(Rank)))
+        {
+            symbols.Add(GetRankSymbol(rank));
+        }
+        return symbols;
     }
 }

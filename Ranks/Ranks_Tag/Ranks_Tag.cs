@@ -1,14 +1,11 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Memory;
-using CounterStrikeSharp.API.Modules.Timers;
+using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using RanksApi;
-using System.ComponentModel.DataAnnotations;
-using System.Reflection.Metadata;
-using System.Text.Json.Serialization;
 
 namespace Ranks_Tag;
 
@@ -22,12 +19,64 @@ public class RanksTag : BasePlugin
 
     public override void OnAllPluginsLoaded(bool hotReload)
     {
-        Logger.LogInformation("Loading Rank T....");
-
         _api = IRanksApi.Capability.Get();
         if (_api == null) return;
+
+        AddCommandListener("say", CommandListener_Say);
+        AddCommandListener("say_team", CommandListener_Say);
     }
 
+    private HookResult CommandListener_Say(CCSPlayerController? player, CommandInfo info)
+    {
+        if (player == null) return HookResult.Continue;
+        var msg = GetTextInsideQuotes(info.ArgString);
+
+        if (msg.StartsWith('!') || msg.StartsWith('/')) return HookResult.Continue;
+
+            switch (msg)
+            {
+                case "discord":
+                    OnCmdDiscord(player, info);
+                    return HookResult.Continue;
+                case "whatsapp":
+                    OnCmdWhatsapp(player, info);
+                    return HookResult.Continue;
+            }
+
+        return HookResult.Continue;
+    }
+
+
+    [ConsoleCommand("css_discord")]
+    public void OnCmdDiscord(CCSPlayerController? controller, CommandInfo command)
+    {
+        if (controller == null) return;
+
+        var steamId = new SteamID(controller.SteamID);
+        Task.Run(() => Server.NextFrameAsync(() =>
+        {
+            if (!controller.IsValid) return;
+
+            this._api.PrintToChat(controller,
+                $"{ChatColors.Green}Link para o Discord: {ChatColors.LightBlue}https://www.clutcharena.com.br/discord");
+        }));
+    }
+
+    [ConsoleCommand("css_whatsapp")]
+    public void OnCmdWhatsapp(CCSPlayerController? controller, CommandInfo command)
+    {
+        if (controller == null) return;
+
+        var steamId = new SteamID(controller.SteamID);
+
+        Task.Run(() => Server.NextFrameAsync(() =>
+        {
+            if (!controller.IsValid) return;
+
+            this._api.PrintToChat(controller,
+                $"{ChatColors.Green}Link para o WhatsApp: {ChatColors.LightBlue}https://www.clutcharena.com.br/whatsapp");
+        }));
+    }
 
     [GameEventHandler]
     public HookResult OnClientConnect(EventPlayerConnectFull @event, GameEventInfo info)
@@ -59,37 +108,59 @@ public class RanksTag : BasePlugin
                 Logger.LogInformation($"Rank not found for key '{level.Name}'");
             }
 
-            player.Clan = $"{player.Clan} {rankSymbol}";
-            Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
+            if (string.IsNullOrEmpty(player.Clan))
+            {
+                player.Clan = $"{rankSymbol}";
+            } 
+            else
+            {
+                // Check if player.Clan already contains a rank symbol
+                var rankSymbols = RankHelper.GetAllRankSymbols(); // Method to get all rank symbols
+                foreach (var existingSymbol in rankSymbols)
+                {
+                    if (player.Clan.Contains(existingSymbol))
+                    {
+                        // Replace existing rank symbol with the new one
+                        player.Clan = player.Clan.Replace(existingSymbol, rankSymbol);
+                        break;
+                    }
+                }
 
+                // If no existing rank symbol was found, add the new one
+                if (!player.Clan.Contains(rankSymbol))
+                {
+                    player.Clan = $"{player.Clan} {rankSymbol}";
+                }
+            }
+
+            
+
+            Utilities.SetStateChanged(player, "CCSPlayerController", "m_szClan");
         });
 
-        
-       
+
         AddTimer(10f, () =>
         {
-            player.PrintToChat($"{ChatColors.Gold}[ClutchArena] {ChatColors.DarkRed}www.ClutchArena.com.br");
-            player.PrintToChat($"{ChatColors.Gold}[ClutchArena] {ChatColors.LightBlue}Olá {player.PlayerName} acesse nosso site e concorra a prêmios em SKIN todo mês");
-            player.PrintToChat($"{ChatColors.Gold}[ClutchArena] {ChatColors.Green}Torne-se um membro VIP {ChatColors.LightYellow}★ {ChatColors.Green} e aproveite várias vantagens, além de participar de sorteios exclusivos!");
+            this._api.PrintToChat(player, $"{ChatColors.Green}www.ClutchArena.com.br");
+            this._api.PrintToChat(player, $"{ChatColors.White}Olá {ChatColors.LightYellow}{player.PlayerName} {ChatColors.White}acesse nosso site e concorra a prêmios em SKIN todo mês");
+            this._api.PrintToChat(player, $"{ChatColors.Green}Torne-se um membro VIP {ChatColors.LightYellow}★ {ChatColors.Green} e aproveite várias vantagens, além de participar de sorteios exclusivos!");
+            this._api.PrintToChat(player, $"{ChatColors.White}Faça parte da nossa comunidade: {ChatColors.Green}!discord !whatsapp");
         });
-
-
-        AddTimer(35f, () =>
-        {
-            player.PrintToCenter($"{player.PlayerName} junte-se ao nosso Discord! Faça parte desta comunidade incrível");
-        });
-
 
         return HookResult.Continue;
     }
-}
 
-public class Advertisement
-{
-    public float Interval { get; init; }
-    public List<Dictionary<string, string>> Messages { get; init; } = null!;
+    private static string GetTextInsideQuotes(string input)
+    {
+        var startIndex = input.IndexOf('"');
+        var endIndex = input.LastIndexOf('"');
 
-    private int _currentMessageIndex;
+        if (startIndex != -1 && endIndex != -1 && startIndex < endIndex)
+        {
+            return input.Substring(startIndex + 1, endIndex - startIndex - 1);
+        }
 
-    [JsonIgnore] public Dictionary<string, string> NextMessages => Messages[_currentMessageIndex++ % Messages.Count];
+        return string.Empty;
+    }
+
 }
